@@ -40,7 +40,7 @@
 
 (defun calculate-scale (width height margin glyph)
   (let ((avail-w (- width (* 2.0 margin)))
-        (avail-h (- height (* 2.0 margin)))
+        (avail-h (* 0.5 (- height (* 2.0 margin))))
         (glyph-width (- (glyph-data-xmax glyph)
                         (glyph-data-xmin glyph)))
         (glyph-height (- (glyph-data-ymax glyph)
