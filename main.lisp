@@ -16,7 +16,7 @@
   (let ((segments nil))
     (zpb-ttf:do-contours (contour glyph)
       (zpb-ttf:do-contour-segments (start control end)
-                                   contour
+        contour
         (when start
           (push (make-segment :start-x (zpb-ttf:x start)
                               :start-y (zpb-ttf:y start)
@@ -148,9 +148,19 @@
                       :do (write-char (aref gri y x)))
                 (terpri)))))
 
+(defun usage ()
+  (print "Usage: ttf2asciiart [options] text ...")
+  (print "Options:")
+  (print "  -f, --font <path>    Set the font the path")
+  (print "  -v, --vertical       Output in vertical text")
+  (print "  -w, --width <val>    Specify output width (default: 48.0)")
+  (print "  -h, --height <val>   Specify output height (default: 24.0)")
+  (print "      --help           Display this.")
+  (uiop:quit 0))
+
 (defun parse-cli-args (args)
   (when (null args)
-      (error "At least one argument is required."))
+    (error "At least one argument is required."))
   (let ((f-path "/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf")
         (font-flg nil)
         (texts nil)
