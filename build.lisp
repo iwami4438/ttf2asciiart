@@ -3,4 +3,5 @@
 (sb-ext:save-lisp-and-die
  "ttf2asciiart"
  :toplevel #'main
- :executable t)
+ :executable t
+ :compression t)
