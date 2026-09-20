@@ -149,6 +149,8 @@
                 (terpri)))))
 
 (defun parse-cli-args (args)
+  (when (null args)
+      (error "At least one argument is required."))
   (let ((f-path "/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf")
         (font-flg nil)
         (texts nil)
@@ -185,27 +187,31 @@
     (values f-path (nreverse texts) vertical-flg canvas-width canvas-height)))
 
 (defun main ()
-  (multiple-value-bind (f-path texts vertical-flg canvas-width canvas-height)
-      (parse-cli-args (uiop:command-line-arguments))
-    (let* ((margin 1.0)
-           (concatted (mapcan (lambda (te)
-                                (coerce te 'list))
-                              texts))
-           (grids (mapcar (lambda (ch)
-                            (let* ((raw-glyph (load-glyph-to-struct f-path ch))
-                                   (scale (calculate-scale canvas-width
-                                                           canvas-height
-                                                           margin
-                                                           raw-glyph))              
-                                   (transformed (transform-glyph raw-glyph scale margin)))
-                              (make-grid transformed
-                                         :width (round canvas-width)
-                                         :height (round canvas-height))))
-                          concatted)))
-      (if vertical-flg
-          (render-vertical grids
-                           canvas-width
-                           canvas-height)
-          (render-horizontal grids
-                             canvas-width
-                             canvas-height)))))
+  (handler-case
+      (multiple-value-bind (f-path texts vertical-flg canvas-width canvas-height)
+          (parse-cli-args (uiop:command-line-arguments))
+        (let* ((margin 1.0)
+               (concatted (mapcan (lambda (te)
+                                    (coerce te 'list))
+                                  texts))
+               (grids (mapcar (lambda (ch)
+                                (let* ((raw-glyph (load-glyph-to-struct f-path ch))
+                                       (scale (calculate-scale canvas-width
+                                                               canvas-height
+                                                               margin
+                                                               raw-glyph))              
+                                       (transformed (transform-glyph raw-glyph scale margin)))
+                                  (make-grid transformed
+                                             :width (round canvas-width)
+                                             :height (round canvas-height))))
+                              concatted)))
+          (if vertical-flg
+              (render-vertical grids
+                               canvas-width
+                               canvas-height)
+              (render-horizontal grids
+                                 canvas-width
+                                 canvas-height))))
+    (error (e)
+      (format *error-output* "Error: ~a~%* " e)
+      (uiop:quit 1))))

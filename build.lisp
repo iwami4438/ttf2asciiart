@@ -1,6 +1,6 @@
 (load "main.lisp")
 
 (sb-ext:save-lisp-and-die
- "main"
+ "ttf2asciiart"
  :toplevel #'main
  :executable t)
