@@ -199,7 +199,7 @@
                                        (scale (calculate-scale canvas-width
                                                                canvas-height
                                                                margin
-                                                               raw-glyph))              
+                                                               raw-glyph))
                                        (transformed (transform-glyph raw-glyph scale margin)))
                                   (make-grid transformed
                                              :width (round canvas-width)
