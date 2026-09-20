@@ -153,8 +153,7 @@
   (write-line "Options:")
   (write-line "  -f, --font <path>    Set the font the path")
   (write-line "  -v, --vertical       Output in vertical text")
-  (write-line "  -w, --width <val>    Specify output width (default: 48.0)")
-  (write-line "  -h, --height <val>   Specify output height (default: 24.0)")
+  (write-line "  -s, --size <val>     Specify output size (default: 24.0)")
   (write-line "  -c, --char <char>    Specify the text to be drawn. (default: #)")
   (write-line "      --help           Display this."))
 
@@ -164,8 +163,7 @@
   (let ((f-path "/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf")
         (vertical-flg nil)
         (texts nil)
-        (canvas-width 48.0)
-        (canvas-height 24.0)
+        (canvas-size 24.0)
         (opt-flg nil)
         (describe-char #\#))
     (dolist (arg args)
@@ -176,16 +174,12 @@
            (error "Option ~a expects a value, but got another option: ~a" opt-flg arg))
          (ecase opt-flg
            (:font (setq f-path arg))
-           (:width (setq canvas-width (read-from-string arg)))
-           (:height (setq canvas-height (read-from-string arg)))
+           (:size (setq canvas-size (read-from-string arg)))
            (:ch (setq describe-char (char arg 0))))
          (setq opt-flg nil))
-        ((or (string= arg "-w")
-             (string= arg "--width"))
-         (setq opt-flg :width))
-        ((or (string= arg "-h")
-             (string= arg "--height"))
-         (setq opt-flg :height))
+        ((or (string= arg "-s")
+             (string= arg "--size"))
+         (setq opt-flg :size))
         ((or (string= arg "-v")
              (string= arg "--vertical"))
          (setq vertical-flg t))
@@ -200,8 +194,14 @@
          (uiop:quit 0))
         (t
          (push arg texts))))
-    (values f-path (nreverse texts) vertical-flg canvas-width canvas-height
-            describe-char)))
+    (when (<= canvas-size 0)
+      (error "Canvas size must be positive"))
+    (let ((canvas-width (float canvas-size 0.0d0))
+          (canvas-height (float (max 1
+                                     (round (/ canvas-size 2.0)))
+                                0.0d0)))
+      (values f-path (nreverse texts) vertical-flg canvas-width canvas-height
+              describe-char))))
 
 (defun main ()
   (handler-case
