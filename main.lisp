@@ -40,7 +40,7 @@
 
 (defun calculate-scale (width height margin glyph)
   (let ((avail-w (- width (* 2.0 margin)))
-        (avail-h (* 0.5 (- height (* 2.0 margin))))
+        (avail-h (- height (* 2.0 margin)))
         (glyph-width (- (glyph-data-xmax glyph)
                         (glyph-data-xmin glyph)))
         (glyph-height (- (glyph-data-ymax glyph)
@@ -115,7 +115,7 @@
           (setq err (+ err dx))
           (setq y0 (+ y0 sy)))))))
 
-(defun make-grid (glyph-data &key (width 80) (height 40))
+(defun make-grid (glyph-data &key (width 80) (height 40) (ch #\#))
   (let ((grid (make-canvas height width)))
     (dolist (seg (glyph-data-segments glyph-data))
       (let ((sx (round (segment-start-x seg)))
@@ -124,12 +124,12 @@
             (ey (round (segment-end-y seg)))
             (cx (segment-control-x seg))
             (cy (segment-control-y seg)))
-        (draw-line-to-grid grid width height sx sy ex ey #\#)
+        (draw-line-to-grid grid width height sx sy ex ey ch)
         (when (and cx cy)
           (let ((icx (round cx))
                 (icy (round cy)))
-            (draw-line-to-grid grid width height sx sy icx icy #\#)
-            (draw-line-to-grid grid width height icx icy ex ey #\#)))))
+            (draw-line-to-grid grid width height sx sy icx icy ch)
+            (draw-line-to-grid grid width height icx icy ex ey ch)))))
     grid))
 
 (defun render-horizontal (grids width height)
@@ -155,6 +155,7 @@
   (write-line "  -v, --vertical       Output in vertical text")
   (write-line "  -w, --width <val>    Specify output width (default: 48.0)")
   (write-line "  -h, --height <val>   Specify output height (default: 24.0)")
+  (write-line "  -c, --char <char>    Specify the text to be drawn. (default: #)")
   (write-line "      --help           Display this."))
 
 (defun parse-cli-args (args)
@@ -165,14 +166,19 @@
         (texts nil)
         (canvas-width 48.0)
         (canvas-height 24.0)
-        (opt-flg nil))
+        (opt-flg nil)
+        (describe-char #\#))
     (dolist (arg args)
       (cond
         (opt-flg
+         (when (and (> (length arg) 0)
+                    (char= (char arg 0) #\-))
+           (error "Option ~a expects a value, but got another option: ~a" opt-flg arg))
          (ecase opt-flg
            (:font (setq f-path arg))
            (:width (setq canvas-width (read-from-string arg)))
-           (:height (setq canvas-height (read-from-string arg))))
+           (:height (setq canvas-height (read-from-string arg)))
+           (:ch (setq describe-char (char arg 0))))
          (setq opt-flg nil))
         ((or (string= arg "-w")
              (string= arg "--width"))
@@ -186,16 +192,21 @@
         ((or (string= arg "-f")
              (string= arg "--font"))
          (setq opt-flg :font))
+        ((or (string= arg "-c")
+             (string= arg "--char"))
+         (setq opt-flg :ch))
         ((string= arg "--help")
          (usage)
          (uiop:quit 0))
         (t
          (push arg texts))))
-    (values f-path (nreverse texts) vertical-flg canvas-width canvas-height)))
+    (values f-path (nreverse texts) vertical-flg canvas-width canvas-height
+            describe-char)))
 
 (defun main ()
   (handler-case
-      (multiple-value-bind (f-path texts vertical-flg canvas-width canvas-height)
+      (multiple-value-bind (f-path texts vertical-flg canvas-width canvas-height
+                            describe-char)
           (parse-cli-args (uiop:command-line-arguments))
         (when (null texts)
           (error "No text provided"))
@@ -212,7 +223,8 @@
                                        (transformed (transform-glyph raw-glyph scale margin)))
                                   (make-grid transformed
                                              :width (round canvas-width)
-                                             :height (round canvas-height))))
+                                             :height (round canvas-height)
+                                             :ch describe-char)))
                               concatted)))
           (if vertical-flg
               (render-vertical grids
