@@ -7,8 +7,8 @@
 ## FLAGS
 - `-f` or `--font` Set the output font. Default is `/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf`. (It's probably included if you're using Ubuntu.)
 - `-v` or `--vertical` Output in vertical text.
-- `-w` or `--width` Specify the output width. A value of 48.0 or higher is recommended for properly displaying TTF fonts. Default is 48.0.
-- `-h` or `--height` Specify the output height. A value of 24.0 or higher is recommended for properly displaying TTF fonts. Since the terminal stretches the height, half the width value might be appropriate. Default is 24.0.
+- `-s` or `--size` Set the display size. (default: 24.0)
+- `-c` or `--char` Set the text to be displayed. (default: #)
 
 # BUILD
 - Run this command. `sbcl --load build.lisp --quit`
