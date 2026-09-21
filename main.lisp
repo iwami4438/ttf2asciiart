@@ -45,22 +45,24 @@
                         (glyph-data-xmin glyph)))
         (glyph-height (- (glyph-data-ymax glyph)
                          (glyph-data-ymin glyph))))
-    (min (/ avail-w (if (zerop glyph-width) 1.0 glyph-width))
-         (/ avail-h (if (zerop glyph-height) 1.0 glyph-height)))))
+    (values
+     (/ avail-w (if (zerop glyph-width) 1.0 glyph-width))
+     (/ avail-h (if (zerop glyph-height) 1.0 glyph-height)))))
 
-(defun transform-glyph (glyph-data scale margin)
+(defun transform-glyph (glyph-data scale-x scale-y margin)
   (let ((xmin (glyph-data-xmin glyph-data))
         (ymin (glyph-data-ymin glyph-data))
         (xmax (glyph-data-xmax glyph-data))
         (ymax (glyph-data-ymax glyph-data)))
-    (let ((glyph-height (- ymax ymin)))
+    (let ((glyph-height (- ymax ymin))
+          (glyph-width (- xmax xmin)))
       (flet ((transform-coord (x y)
-               (values (+ (* (- x xmin) scale)
-                          margin)
-                       (+ (* (- glyph-height
-                                (- y ymin))
-                             scale)
-                          margin)))
+               (let ((phys-x (+ (* (- x xmin) scale-x)
+                                margin))
+                     (phys-y (+ (* (- ymax y)
+                                   scale-y)
+                                margin)))
+                 (values phys-x phys-y)))
              (to-float (val)
                (and val (float val 0.0d0))))
         (let ((transformed-segments
@@ -85,10 +87,10 @@
                                                 :end-y ney))))))
                         (glyph-data-segments glyph-data))))
           (make-glyph-data
-           :xmin (* 0.0 scale)
-           :ymin (* 0.0 scale)
-           :xmax (* (- xmax xmin) scale)
-           :ymax (* glyph-height scale)
+           :xmin 0.0
+           :ymin 0.0
+           :xmax (* glyph-width scale-x)
+           :ymax (* glyph-height scale-y)
            :segments transformed-segments))))))
 
 (defun draw-line-to-grid (grid width height x0 y0 x1 y1 char)
@@ -115,6 +117,16 @@
           (setq err (+ err dx))
           (setq y0 (+ y0 sy)))))))
 
+(defun terminal-char-width (char)
+  (let ((code (char-code char)))
+    (cond
+      ((or (and (>= code #x3000) (<= code #x9FFF))  ;; kanji
+           (and (>= code #x3040) (<= code #x309F))  ;; hiragana
+           (and (>= code #x30A0) (<= code #x30FF))  ;; katakana
+           (and (>= code #xFF00) (<= code #xFFEF))) ;; zenkakueisu, kigou
+       2)
+      (t 1))))
+
 (defun make-grid (glyph-data &key (width 80) (height 40) (ch #\#))
   (let ((grid (make-canvas height width)))
     (dolist (seg (glyph-data-segments glyph-data))
@@ -132,21 +144,27 @@
             (draw-line-to-grid grid width height icx icy ex ey ch)))))
     grid))
 
-(defun render-horizontal (grids width height)
-  (loop :for y :below height
-        :do (progn
-              (dolist (gri grids)
-                (loop :for x :below width
-                      :do (write-char (aref gri y x))))
-              (terpri))))
-
-(defun render-vertical (grids width height)
-  (dolist (gri grids)
+(defun render-horizontal (grids)
+  (let ((height (if grids
+                    (array-dimension (car grids) 0)
+                    0)))
     (loop :for y :below height
           :do (progn
-                (loop :for x :below width
-                      :do (write-char (aref gri y x)))
+                (dolist (gri grids)
+                  (let ((width (array-dimension gri 1)))
+                    (loop :for x :below width
+                          :do (write-char (aref gri y x)))))
                 (terpri)))))
+
+(defun render-vertical (grids)
+  (dolist (gri grids)
+    (let ((height (array-dimension gri 0))
+          (width (array-dimension gri 1)))
+      (loop :for y :below height
+            :do (progn
+                  (loop :for x :below width
+                        :do (write-char (aref gri y x)))
+                  (terpri))))))
 
 (defun usage ()
   (write-line "Usage: ttf2asciiart [options] text ...")
@@ -219,23 +237,26 @@
                                   texts))
                (grids (mapcar (lambda (ch)
                                 (let* ((raw-glyph (load-glyph-to-struct f-path ch))
-                                       (scale (calculate-scale canvas-width
-                                                               canvas-height
-                                                               margin
-                                                               raw-glyph))
-                                       (transformed (transform-glyph raw-glyph scale margin)))
-                                  (make-grid transformed
-                                             :width (round canvas-width)
-                                             :height (round canvas-height)
-                                             :ch describe-char)))
+                                       (cell-aspect (/ (terminal-char-width ch) 2.0))
+                                       (grid-width (round (* canvas-width
+                                                             cell-aspect))))
+                                  (multiple-value-bind (scale-x scale-y)
+                                      (calculate-scale grid-width
+                                                       canvas-height
+                                                       margin
+                                                       raw-glyph)
+                                    (let ((transformed (transform-glyph raw-glyph
+                                                                         scale-x
+                                                                         scale-y
+                                                                         margin)))
+                                      (make-grid transformed
+                                                 :width grid-width
+                                                 :height (round canvas-height)
+                                                 :ch describe-char)))))
                               concatted)))
           (if vertical-flg
-              (render-vertical grids
-                               canvas-width
-                               canvas-height)
-              (render-horizontal grids
-                                 canvas-width
-                                 canvas-height))))
+              (render-vertical grids)
+              (render-horizontal grids))))
     (error (e)
       (format *error-output* "Error: ~a~%" e)
       (usage)
